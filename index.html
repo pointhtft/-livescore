@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LiveScore HT FT</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0f1115;color:#fff;font-family:Arial}
+.header{padding:15px;text-align:center;background:#181a20;position:sticky;top:0;z-index:10}
+.tabs{display:flex;background:#1e222c;position:sticky;top:55px;z-index:10}
+.tab{flex:1;padding:12px;text-align:center;cursor:pointer;border-bottom:3px solid transparent}
+.tab.active{border-color:#00ff00;color:#00ff00;font-weight:bold}
+.match{background:#1e222c;margin:10px;padding:12px;border-radius:12px;cursor:pointer}
+.match:active{background:#2a2e3a}
+.row{display:flex;justify-content:space-between;align-items:center}
+.league{font-size:11px;color:#888}
+.score{font-weight:bold;font-size:18px;text-align:center;min-width:60px}
+.htft{font-size:12px;color:#aaa;text-align:center}
+.details{display:none;margin-top:10px;padding-top:10px;border-top:1px solid #333;font-size:13px}
+.details.open{display:block}
+.badge{color:#00ff00;font-size:11px;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="header"><h3 style="margin:0">⚽ LiveScore - HT/FT</h3></div>
+<div class="tabs">
+<div class="tab active" onclick="filterTab('live',this)">LIVE</div>
+<div class="tab" onclick="filterTab('results',this)">RESULTS FT</div>
+<div class="tab" onclick="filterTab('upcoming',this)">UPCOMING</div>
+</div>
+<div id="list" style="padding:10px">Loading...</div>
+<script>
+let matches=[];
+async function load(){
+ try{
+  let r=await fetch('/api/matches'); let d=await r.json();
+  matches=d.matches||d.data||[]; render('live');
+ }catch(e){document.getElementById('list').innerHTML='Error: '+e.message}
+}
+function filterTab(t,el){
+ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); el.classList.add('active'); render(t);
+}
+function render(type){
+ let f=matches;
+ if(type=='live') f=matches.filter(m=>JSON.stringify(m).toLowerCase().includes('live')||m.minute);
+ if(type=='results') f=matches.filter(m=>{let s=(m.status||'').toLowerCase(); return s.includes('ft')||s.includes('finished')||s.includes('full')});
+ if(type=='upcoming') f=matches.filter(m=>(m.status||'').toLowerCase().includes('not started')||(m.status||'').toLowerCase().includes('ns'));
+ let html='';
+ if(f.length==0) return document.getElementById('list').innerHTML='<p style="text-align:center;color:#777">No '+type+' matches</p>';
+ f.forEach((m,i)=>{
+  let home=m.homeTeam||m.home?.name||m.teams?.home||'Home';
+  let away=m.awayTeam||m.away?.name||m.teams?.away||'Away';
+  let ft=m.score||(m.goals?m.goals.home+' - '+m.goals.away:'0 - 0');
+  let ht=m.ht_score||m.halfTime||m.scores?.ht||'0 - 0';
+  let league=m.league||m.competition||'';
+  let status=m.status||m.minute||'';
+  html+=`
+  <div class="match" onclick="document.getElementById('det${i}').classList.toggle('open')">
+   <div class="league">${league} - <span class="badge">${status}</span></div>
+   <div class="row">
+    <div><div>${home}</div><div style="margin-top:4px">${away}</div></div>
+    <div><div class="score">${ft}</div><div class="htft">${type=='results'?'FT':''}</div></div>
+   </div>
+   <div id="det${i}" class="details">
+    <div style="display:flex;justify-content:space-between">
+     <span>HT Result:</span><b>${ht}</b>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px">
+     <span>FT Result:</span><b>${ft}</b>
+    </div>
+    <div style="margin-top:8px;color:#aaa">Click again to close</div>
+   </div>
+  </div>`;
+ });
+ document.getElementById('list').innerHTML=html;
+}
+load(); setInterval(load,30000);
+</script>
+</body>
+</html>
