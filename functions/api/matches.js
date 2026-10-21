@@ -2,76 +2,52 @@ export async function onRequest(context) {
   const API_KEY = context.env.FOOTBALL_API_KEY;
   const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
 
-  if (!API_KEY) {
-    return new Response(JSON.stringify({ matches: [], error: "Add FOOTBALL_API_KEY in Cloudflare Variables" }), { headers });
-  }
+  if (!API_KEY) return new Response(JSON.stringify({ matches: [], error: "No API KEY" }), { headers });
 
   try {
     const url = new URL(context.request.url);
     let filter = url.searchParams.get('filter') || 'today';
-
-    // BUILD DATE: 3 days back / 4 days future
-    const today = new Date();
-    let targetDate = new Date(today);
-
-    if (filter === 'yesterday' || filter.includes('Yesterday') || filter === '20/10') {
-      targetDate.setDate(today.getDate() - 1);
-    } else if (filter === 'today' || filter === 'Today') {
-      targetDate.setDate(today.getDate());
-    } else if (filter === 'live' || filter === 'finished' || filter === 'all') {
-      targetDate.setDate(today.getDate());
-    } else if (filter.includes('/')) {
-      // filter like 18/10 (-3) or 2026-10-21
-      let parts = filter.split(' ')[0].split('/');
-      if (parts.length === 2) {
-        let day = parseInt(parts[0]);
-        let month = parseInt(parts[1]) - 1;
-        targetDate = new Date(today.getFullYear(), month, day);
-      }
+    
+    // DATE LOGIC: 3 days back, 4 days future
+    let d = new Date();
+    if (filter === 'yesterday') d.setDate(d.getDate()-1);
+    if (filter === 'all' || filter === 'today') d.setDate(d.getDate());
+    if (filter === 'tomorrow') d.setDate(d.getDate()+1);
+    // If filter is like 18/10, 19/10 etc from UI
+    if (filter.match(/\d{1,2}\/\d{1,2}/)) {
+      let [day,mon] = filter.split('/')[0].split('/').length ? filter.replace(/[^0-9\/]/g,'').split('/') : [0,0];
+      // fallback to today, real date is handled in frontend
     }
+    // Allow frontend to pass YYYY-MM-DD directly
+    let dateStr = /^\d{4}-\d{2}-\d{2}$/.test(filter) ? filter : d.toISOString().split('T')[0];
 
-    let dateStr = targetDate.toISOString().split('T')[0]; // 2026-10-21 format
-    // If filter is -3 days etc
-    if (filter === '18/10 (-3)') { let d=new Date(); d.setDate(d.getDate()-3); dateStr=d.toISOString().split('T')[0]; }
-    if (filter === '19/10 (-2)') { let d=new Date(); d.setDate(d.getDate()-2); dateStr=d.toISOString().split('T')[0]; }
-
-    // REAL ENDPOINT FROM YOUR SCREENSHOT
+    // YOUR REAL ENDPOINT - from your screenshot
     const apiUrl = `https://www.live-football-api.com/api/v1/matches?api_key=${API_KEY}&date=${dateStr}&lang=en`;
-
     const res = await fetch(apiUrl);
     const json = await res.json();
+    
+    let raw = json.data || json.matches || json.result || [];
 
-    // Your API returns { data: [...] } or { matches: [...] } or array
-    const raw = json.data || json.matches || json.result || (Array.isArray(json) ? json : []);
-
-    if (!raw || raw.length === 0) {
-      return new Response(JSON.stringify({ matches: [], info: `No matches for ${dateStr}`, raw: json }), { headers });
-    }
-
-    const matches = raw.map(m => {
-      // Time from API
-      let time = m.time || m.kickoff || m.start_time || '';
-      if (m.date && m.date.includes('T')) time = m.date.split('T')[1].substring(0,5);
-      if (!time && m.kickoff_time) time = m.kickoff_time.substring(0,5);
-      
-      // Country + League from API
-      let country = m.league?.country || m.competition?.country || m.country || 'World';
+    let matches = raw.map(m => {
+      let country = m.league?.country || m.competition?.country || m.country_name || m.country || 'World';
       let leagueName = m.league?.name || m.competition?.name || m.league_name || 'League';
-      let leagueFull = `${country} - ${leagueName}`;
-
+      let time = m.time || m.kickoff_time || '';
+      if (m.date && String(m.date).includes('T')) time = String(m.date).split('T')[1].substring(0,5);
+      
       return {
-        time: time || 'FT',
-        homeTeam: m.home_team || m.homeTeam?.name || m.home?.name || m.teams?.home || '',
-        awayTeam: m.away_team || m.awayTeam?.name || m.away?.name || m.teams?.away || '',
-        league: leagueFull,
+        time: time || (m.status==='FT' ? 'FT' : ''),
+        homeTeam: m.home_team || m.homeTeam?.name || m.home?.name || '',
+        awayTeam: m.away_team || m.awayTeam?.name || m.away?.name || '',
+        league: `${country} - ${leagueName}`, // COUNTRY + LEAGUE
         status: m.status || m.match_status || 'FT',
         minute: m.minute || m.live_minute || '',
-        ft_score: m.score ? `${m.score.home || 0} - ${m.score.away || 0}` : (m.ft_score || `${m.home_score||0} - ${m.away_score||0}`),
-        ht_score: m.ht_score || (m.halftime_score ? `${m.halftime_score.home} - ${m.halftime_score.away}` : '0 - 0')
+        ft_score: m.score ? `${m.score.home}-${m.score.away}` : `${m.home_score ?? 0} - ${m.away_score ?? 0}`,
+        ht_score: m.halftime_score ? `${m.halftime_score.home}-${m.halftime_score.away}` : (m.ht_score || '0-0')
       };
-    }).filter(x => x.homeTeam);
+    }).filter(x=>x.homeTeam);
 
-    return new Response(JSON.stringify({ matches }), { headers });
+    // Frontend filter LIVE/FINISHED
+    return new Response(JSON.stringify({ matches, date: dateStr }), { headers });
 
   } catch (e) {
     return new Response(JSON.stringify({ matches: [], error: e.message }), { headers });
