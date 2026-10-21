@@ -16,8 +16,7 @@ homeTeam:x.home_team_name,
 awayTeam:x.away_team_name,
 league:x.country_name+' - '+x.league_name,
 status:(x.match_status||'').toLowerCase(),
-ft_score:`${x.home_goals??0} - ${x.away_goals??0}`,
-ht_score:`${x.half_time_home_goals??0} - ${x.half_time_away_goals??0}`
+ft_score:`${x.home_goals??0} - ${x.away_goals??0}`
 }));
 return new Response(JSON.stringify({matches:m}),{headers:h});
 }catch(e){return new Response(JSON.stringify({matches:[]}),{headers:h});}
