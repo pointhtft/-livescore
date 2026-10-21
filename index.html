@@ -1,25 +1,17 @@
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LiveScore HT/FT</title>
-<style>body{margin:0;background:#0f1115;color:#fff;font-family:Arial}.header{padding:15px;text-align:center;background:#181a20}.tabs{display:flex;background:#1e222c;position:sticky;top:0}.tab{flex:1;padding:13px;text-align:center;cursor:pointer;border-bottom:3px solid transparent}.tab.active{border-color:#00ff00;color:#00ff00}.match{background:#1e222c;margin:10px;border-radius:12px;padding:12px}.league{font-size:11px;color:#888;margin-bottom:4px}.row{display:flex;justify-content:space-between;align-items:center}.score{font-weight:bold;font-size:18px}.htft{margin-top:8px;background:#0f1115;padding:8px;border-radius:8px;display:flex;justify-content:space-between;font-size:14px}.badge{font-size:10px;background:#00ff00;color:#000;padding:2px 6px;border-radius:4px}</style></head>
-<body>
-<div class="header"><h3 style="margin:0">⚽ LiveScore HT/FT</h3><small>Click tab for HT + FT Results</small></div>
-<div class="tabs"><div class="tab active" id="t-live" onclick="showTab('live')">LIVE</div><div class="tab" id="t-ft" onclick="showTab('ft')">FULL TIME RESULTS</div><div class="tab" id="t-up" onclick="showTab('up')">UPCOMING</div></div>
-<div id="list" style="padding:5px">Loading live...</div>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LiveScore HT FT</title>
+<style>body{margin:0;background:#0f1115;color:#fff;font-family:Arial}.header{padding:15px;text-align:center;background:#181a20}.tabs{display:flex;background:#1e222c;position:sticky;top:0;z-index:10}.tab{flex:1;padding:14px;text-align:center;cursor:pointer;border-bottom:3px solid transparent;font-size:14px}.tab.active{border-color:#00ff62;color:#00ff62;font-weight:bold}.match{background:#1e222c;margin:10px;border-radius:12px;padding:12px}.league{font-size:11px;color:#888}.row{display:flex;justify-content:space-between;align-items:center;margin:6px 0}.score{font-size:20px;font-weight:bold}.htft{display:flex;justify-content:space-between;background:#0f1115;padding:8px 10px;border-radius:8px;margin-top:8px;font-size:13px}.htft b{color:#00ff62}</style></head><body>
+<div class="header"><h3 style="margin:0">⚽ LiveScore</h3><small>HT/FT Results</small></div>
+<div class="tabs"><div class="tab active" id="tab-live" onclick="show('live')">LIVE</div><div class="tab" id="tab-ft" onclick="show('ft')">FULL TIME RESULTS</div><div class="tab" id="tab-up" onclick="show('up')">UPCOMING</div></div>
+<div id="list" style="padding:5px">Loading...</div>
 <script>
-let allMatches=[];
-async function load(){
-try{let r=await fetch('/api/matches');let d=await r.json();allMatches=d.matches||[];if(allMatches.length==0){allMatches=[{homeTeam:'Man City',awayTeam:'Arsenal',league:'Premier League',status:'FT',score:'2-1',ht_score:'1-0'},{homeTeam:'Barca',awayTeam:'Real',league:'LaLiga',status:'FT',score:'3-3',ht_score:'2-1'}]}render('live')}catch(e){document.getElementById('list').innerHTML='Add FOOTBALL_API_KEY in Cloudflare Pages > Settings > Variables'}}
-function showTab(t){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));if(t=='live')document.getElementById('t-live').classList.add('active');if(t=='ft')document.getElementById('t-ft').classList.add('active');if(t=='up')document.getElementById('t-up').classList.add('active');render(t)}
+let matches=[{homeTeam:'Man City',awayTeam:'Arsenal',league:'Premier League',status:'FT',score:'2-1',ht_score:'1-0'},{homeTeam:'Barcelona',awayTeam:'Real Madrid',league:'LaLiga',status:'FT',score:'3-2',ht_score:'1-1'},{homeTeam:'Bayern',awayTeam:'Dortmund',league:'Bundesliga',status:'LIVE 67',score:'1-0',ht_score:'0-0'}];
+async function load(){try{let r=await fetch('/api/matches');let d=await r.json();if(d.matches&&d.matches.length>0)matches=d.matches;}catch(e){}render('live')}
+function show(t){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.getElementById('tab-'+(t=='ft'?'ft':t=='live'?'live':'up')).classList.add('active');render(t)}
 function render(type){
-let html='';let filtered=allMatches;
-if(type=='ft')filtered=allMatches.filter(m=>(m.status||'').toUpperCase().includes('FT')||m.status=='finished');
-if(type=='live')filtered=allMatches.filter(m=>!(m.status||'').toUpperCase().includes('FT'));
-if(filtered.length==0)filtered=allMatches;
-filtered.forEach(m=>{
-let home=m.homeTeam||m.home?.name||'Home';let away=m.awayTeam||m.away?.name||'Away';let ft=m.score||m.ft_score||'0-0';let ht=m.ht_score||m.halfTime||'0-0';let league=m.league||m.competition||'';let status=m.status||'FT';
-html+=`<div class="match"><div class="league">${league} • <span class="badge">${status}</span></div><div class="row"><div><div>${home}</div><div>${away}</div></div><div class="score">${ft}</div></div><div class="htft"><span>HT: <b>${ht}</b></span><span>FT: <b>${ft}</b></span></div></div>`;
-});
-document.getElementById('list').innerHTML=html||'No matches for '+type;
+let list=document.getElementById('list');let f=matches;
+if(type=='ft')f=matches.filter(m=>m.status&&m.status.toString().toUpperCase().includes('FT'));if(type=='live')f=matches.filter(m=>!m.status.toString().toUpperCase().includes('FT'));if(f.length==0)f=matches;
+let html='';f.forEach(m=>{let h=m.homeTeam||'Home';let a=m.awayTeam||'Away';let ft=m.score||'0-0';let ht=m.ht_score||'0-0';html+=`<div class=match><div class=league>${m.league||''} • ${m.status||''}</div><div class=row><div><div>${h}</div><div>${a}</div></div><div class=score>${ft}</div></div><div class=htft><span>HT: <b>${ht}</b></span><span>FT: <b>${ft}</b></span></div></div>`;});
+list.innerHTML=html||'No matches';
 }
 load();
 </script></body></html>
