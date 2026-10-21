@@ -1,17 +1,162 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LiveScore HT FT</title>
-<style>body{margin:0;background:#0f1115;color:#fff;font-family:Arial}.header{padding:15px;text-align:center;background:#181a20}.tabs{display:flex;background:#1e222c;position:sticky;top:0;z-index:10}.tab{flex:1;padding:14px;text-align:center;cursor:pointer;border-bottom:3px solid transparent;font-size:14px}.tab.active{border-color:#00ff62;color:#00ff62;font-weight:bold}.match{background:#1e222c;margin:10px;border-radius:12px;padding:12px}.league{font-size:11px;color:#888}.row{display:flex;justify-content:space-between;align-items:center;margin:6px 0}.score{font-size:20px;font-weight:bold}.htft{display:flex;justify-content:space-between;background:#0f1115;padding:8px 10px;border-radius:8px;margin-top:8px;font-size:13px}.htft b{color:#00ff62}</style></head><body>
-<div class="header"><h3 style="margin:0">⚽ LiveScore</h3><small>HT/FT Results</small></div>
-<div class="tabs"><div class="tab active" id="tab-live" onclick="show('live')">LIVE</div><div class="tab" id="tab-ft" onclick="show('ft')">FULL TIME RESULTS</div><div class="tab" id="tab-up" onclick="show('up')">UPCOMING</div></div>
-<div id="list" style="padding:5px">Loading...</div>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LiveScore HT FT</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f0f0f;color:#fff;font-family:Arial,sans-serif}
+.header{background:#000;padding:12px;text-align:center;border-bottom:2px solid #00ff88;position:sticky;top:0;z-index:99}
+.header h1{color:#00ff88;font-size:20px}
+.dates{display:flex;overflow-x:auto;background:#1a1a1a;padding:8px;gap:6px;white-space:nowrap}
+.dates::-webkit-scrollbar{display:none}
+.date-btn{padding:8px 14px;background:#2a2a2a;border-radius:20px;border:none;color:#aaa;font-size:13px;cursor:pointer}
+.date-btn.active{background:#00ff88;color:#000;font-weight:bold}
+.filters{display:flex;gap:6px;padding:8px;background:#141414}
+.filter-btn{padding:6px 14px;background:#222;border:1px solid #333;border-radius:15px;color:#fff;font-size:12px;cursor:pointer}
+.filter-btn.active{background:#00ff88;color:#000;border-color:#00ff88}
+.league-header{background:#1e1e1e;padding:10px 12px;font-size:12px;color:#00ff88;border-top:1px solid #2a2a2a;display:flex;justify-content:space-between}
+.league-header span{color:#aaa}
+.match-row{display:flex;background:#111;border-bottom:1px solid #222;padding:10px 12px;align-items:center}
+.match-time{width:45px;color:#888;font-size:12px}
+.match-teams{flex:1;padding-left:8px}
+.match-teams div{font-size:14px;line-height:18px}
+.match-teams div:first-child{color:#fff}
+.match-teams div:last-child{color:#ccc}
+.match-score{text-align:right;min-width:70px}
+.ft{color:#00ff88;font-weight:bold;font-size:15px}
+.ht{color:#666;font-size:11px;margin-top:2px}
+.live{color:#ff3b3b;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.5}}
+#loading{text-align:center;padding:20px;color:#00ff88}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>⚽ LiveScore HT/FT</h1>
+</div>
+
+<div class="dates" id="dates"></div>
+
+<div class="filters">
+<button class="filter-btn active" data-f="all" onclick="setFilter('all',this)">All</button>
+<button class="filter-btn" data-f="live" onclick="setFilter('live',this)">🔴 Live</button>
+<button class="filter-btn" data-f="finished" onclick="setFilter('finished',this)">Finished</button>
+<button class="filter-btn" data-f="yesterday" onclick="setFilter('yesterday',this)">Yesterday</button>
+<button class="filter-btn" data-f="today" onclick="setFilter('today',this)">Today</button>
+<button class="filter-btn" onclick="loadMatches()">↻ Refresh</button>
+</div>
+
+<div id="loading">Loading matches...</div>
+<div id="list"></div>
+
 <script>
-let matches=[{homeTeam:'Man City',awayTeam:'Arsenal',league:'Premier League',status:'FT',score:'2-1',ht_score:'1-0'},{homeTeam:'Barcelona',awayTeam:'Real Madrid',league:'LaLiga',status:'FT',score:'3-2',ht_score:'1-1'},{homeTeam:'Bayern',awayTeam:'Dortmund',league:'Bundesliga',status:'LIVE 67',score:'1-0',ht_score:'0-0'}];
-async function load(){try{let r=await fetch('/api/matches');let d=await r.json();if(d.matches&&d.matches.length>0)matches=d.matches;}catch(e){}render('live')}
-function show(t){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.getElementById('tab-'+(t=='ft'?'ft':t=='live'?'live':'up')).classList.add('active');render(t)}
-function render(type){
-let list=document.getElementById('list');let f=matches;
-if(type=='ft')f=matches.filter(m=>m.status&&m.status.toString().toUpperCase().includes('FT'));if(type=='live')f=matches.filter(m=>!m.status.toString().toUpperCase().includes('FT'));if(f.length==0)f=matches;
-let html='';f.forEach(m=>{let h=m.homeTeam||'Home';let a=m.awayTeam||'Away';let ft=m.score||'0-0';let ht=m.ht_score||'0-0';html+=`<div class=match><div class=league>${m.league||''} • ${m.status||''}</div><div class=row><div><div>${h}</div><div>${a}</div></div><div class=score>${ft}</div></div><div class=htft><span>HT: <b>${ht}</b></span><span>FT: <b>${ft}</b></span></div></div>`;});
-list.innerHTML=html||'No matches';
+let currentFilter='yesterday';
+let selectedDate='yesterday';
+
+// CREATE 3 DAYS BACK / 4 DAYS FUTURE
+function buildDates(){
+  const container=document.getElementById('dates');
+  const today=new Date();
+  const labels=[];
+  for(let i=-3;i<=4;i++){
+    let d=new Date(today);
+    d.setDate(today.getDate()+i);
+    let label=d.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit'});
+    let name='All';
+    if(i===-3) name=`${label} (-3)`;
+    if(i===-2) name=`${label} (-2)`;
+    if(i===-1) name=`Yesterday ${label}`;
+    if(i===0) name=`Today ${label}`;
+    if(i===1) name=`Tomorrow ${label}`;
+    if(i>1) name=`${label} (+${i})`;
+    let val=i===0?'today': i===-1?'yesterday': label;
+    if(i===0) val='today';
+    if(i===-1) val='yesterday';
+    labels.push({name,val,offset:i});
+  }
+  container.innerHTML=labels.map((x,i)=>`<button class="date-btn ${x.val===selectedDate?'active':''}" onclick="selectDate('${x.val}',this)">${x.name}</button>`).join('');
 }
-load();
-</script></body></html>
+
+function selectDate(val,el){
+  selectedDate=val;
+  document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter=val;
+  loadMatches();
+}
+
+function setFilter(f,el){
+  if(el){
+    document.querySelectorAll('.filter-btn').forEach(b=>{if(b.dataset.f) b.classList.remove('active')});
+    el.classList.add('active');
+  }
+  currentFilter=f;
+  loadMatches();
+}
+
+async function loadMatches(){
+  document.getElementById('loading').style.display='block';
+  document.getElementById('list').innerHTML='';
+  try{
+    let res=await fetch(`/api/matches?filter=${currentFilter}&t=${Date.now()}`);
+    let data=await res.json();
+    let matches=data.matches||[];
+    
+    // FILTER LIVE / FINISHED on frontend
+    if(currentFilter==='live') matches=matches.filter(m=>(m.status||'').toLowerCase().includes('live')||m.minute);
+    if(currentFilter==='finished') matches=matches.filter(m=>(m.status||'').toLowerCase().includes('ft')||(m.status||'').toLowerCase().includes('finished'));
+
+    // GROUP BY COUNTRY + LEAGUE
+    let groups={};
+    matches.forEach(m=>{
+      let key=m.league||'Other';
+      if(!groups[key]) groups[key]=[];
+      groups[key].push(m);
+    });
+
+    // TOP 1-10 FIRST, THEN A-Z
+    let sortedKeys=Object.keys(groups).sort((a,b)=>{
+      let aTop=a.toLowerCase().includes('premier')||a.toLowerCase().includes('england')?1:10;
+      let bTop=b.toLowerCase().includes('premier')||b.toLowerCase().includes('england')?1:10;
+      if(aTop!==bTop) return aTop-bTop;
+      return a.localeCompare(b);
+    });
+
+    let html='';
+    sortedKeys.forEach(league=>{
+      let country=league.split(' - ')[0]||'World';
+      let leagueName=league.split(' - ')[1]||league;
+      html+=`<div class="league-header"><span>🌍 ${country} - ${leagueName}</span><span>${groups[league].length}</span></div>`;
+      groups[league].forEach(m=>{
+        let isLive=(m.status||'').toLowerCase().includes('live')||m.minute;
+        html+=`
+        <div class="match-row">
+          <div class="match-time ${isLive?'live':''}">${isLive?(m.minute?m.minute+"'":'LIVE'):m.time||'FT'}</div>
+          <div class="match-teams">
+            <div>${m.homeTeam}</div>
+            <div>${m.awayTeam}</div>
+          </div>
+          <div class="match-score">
+            <div class="ft">${m.ft_score||'0 - 0'}</div>
+            <div class="ht">HT ${m.ht_score||'0 - 0'}</div>
+          </div>
+        </div>`;
+      });
+    });
+
+    document.getElementById('list').innerHTML=html||'<div style="padding:20px;text-align:center;color:#666">No matches found</div>';
+  }catch(e){
+    document.getElementById('list').innerHTML=`<div style="padding:20px;color:red">Error: ${e.message}</div>`;
+  }
+  document.getElementById('loading').style.display='none';
+}
+
+buildDates();
+loadMatches();
+setInterval(loadMatches,30000); // auto refresh every 30s
+</script>
+</body>
+</html>
